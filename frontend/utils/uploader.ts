@@ -4,6 +4,8 @@ import { APIUrl, ErrorWithTitle } from "./utils.js"
 import type { PasteResponse } from "../../shared/interfaces.js"
 import { encodeKey, encrypt, EncryptionScheme, genKey } from "./encryption.js"
 import { UploadError, uploadMPU, uploadNormal, UploadOptions } from "../../shared/uploadPaste.js"
+import { calculateCustomUrlLengths } from "./customUrl.js"
+import { SHORT_PASTE_NAME_LEN, LONG_PASTE_NAME_LEN } from "../../shared/constants.js"
 
 async function genAndEncrypt(scheme: EncryptionScheme, content: string | Uint8Array) {
   const key = await genKey(scheme)
@@ -51,13 +53,34 @@ export async function uploadPaste(
     }
   }
 
+  // Calculate URL parameters based on uploadKind
+  let name: string | undefined
+  let randomLen: number | undefined
+
+  if (pasteSetting.uploadKind === "custom") {
+    // Assemble custom text with separators
+    const prefixSep = pasteSetting.customUsePrefixSeparator ? "~" : ""
+    const suffixSep = pasteSetting.customUseSuffixSeparator ? "~" : ""
+    const prefix = `${prefixSep}${pasteSetting.customText || ""}${suffixSep}`
+
+    const { randomLen: calculatedRandomLen } = calculateCustomUrlLengths(pasteSetting)
+    randomLen = calculatedRandomLen
+    name = prefix
+  } else if (pasteSetting.uploadKind === "short") {
+    randomLen = SHORT_PASTE_NAME_LEN
+    name = undefined
+  } else if (pasteSetting.uploadKind === "long") {
+    randomLen = LONG_PASTE_NAME_LEN
+    name = undefined
+  }
+
   const options: UploadOptions = {
     content: await constructContent(),
     isUpdate: pasteSetting.uploadKind === "manage",
-    isPrivate: pasteSetting.uploadKind === "long",
     password: pasteSetting.password.length ? pasteSetting.password : undefined,
     expire: pasteSetting.expiration,
-    name: pasteSetting.uploadKind === "custom" ? pasteSetting.name : undefined,
+    name: name,
+    randomLen: randomLen,
     highlightLanguage: editorState.editKind === "edit" ? editorState.editHighlightLang : undefined,
     encryptionScheme: pasteSetting.doEncrypt ? encryptionScheme : undefined,
     manageUrl: pasteSetting.manageUrl,

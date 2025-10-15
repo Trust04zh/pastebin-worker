@@ -1,28 +1,17 @@
 import { MPUCreateResponse } from "../../shared/interfaces.js"
-import { NAME_REGEX, PASTE_NAME_LEN, PRIVATE_PASTE_NAME_LEN } from "../../shared/constants.js"
-import { genRandStr, WorkerError } from "../common.js"
-import { getPasteMetadata, pasteNameAvailable } from "../storage/storage.js"
+import { WorkerError, validateAndGeneratePasteName } from "../common.js"
+import { getPasteMetadata } from "../storage/storage.js"
 import { parseSize } from "../../shared/parsers.js"
 
-// POST /mpu/create?n=<optional n>&p=<optional isPrivate>
+// POST /mpu/create?n=<optional n>&l=<optional random length>
 // returns JSON { name: string, key: string, uploadId: string }
 export async function handleMPUCreate(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url)
-  const n = url.searchParams.get("n")
-  const isPrivate = url.searchParams.get("p") !== null
+  const n = url.searchParams.get("n") || undefined
+  const l = url.searchParams.get("l") || undefined
 
-  let name: string | undefined
-  if (n) {
-    if (!NAME_REGEX.test(n)) {
-      throw new WorkerError(400, `illegal paste name ‘${n}’ for MPU create`)
-    }
-    name = "~" + n
-    if (!(await pasteNameAvailable(env, n))) {
-      throw new WorkerError(409, `name ‘${name}’ is already used`)
-    }
-  } else {
-    name = genRandStr(isPrivate ? PRIVATE_PASTE_NAME_LEN : PASTE_NAME_LEN)
-  }
+  // Validate and generate paste name
+  const name = await validateAndGeneratePasteName(n, l, env)
 
   const multipartUpload = await env.R2.createMultipartUpload(name)
   const resp: MPUCreateResponse = {

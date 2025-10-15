@@ -14,7 +14,7 @@ import {
   addRole,
 } from "./testUtils"
 import { createExecutionContext } from "cloudflare:test"
-import { DEFAULT_PASSWD_LEN, PASTE_NAME_LEN } from "../../shared/constants"
+import { DEFAULT_PASSWD_LEN, LONG_PASTE_NAME_LEN } from "../../shared/constants"
 import { parsePath } from "../../shared/parsers"
 
 describe("upload", () => {
@@ -31,7 +31,7 @@ describe("upload", () => {
 
     // check name
     const name: string = url.slice(BASE_URL.length + 1)
-    expect(name.length).toStrictEqual(PASTE_NAME_LEN)
+    expect(name.length).toStrictEqual(LONG_PASTE_NAME_LEN)
     expect(RAND_NAME_REGEX.test(name))
 
     // check manageUrl
@@ -57,7 +57,7 @@ describe("upload", () => {
     const name: string = resp.url.slice(BASE_URL.length + 1)
     let newName
     do {
-      newName = genRandStr(PASTE_NAME_LEN)
+      newName = genRandStr(LONG_PASTE_NAME_LEN)
     } while (newName === name) // roll until finding a different name
     const missingResponse = await workerFetch(ctx, new Request(`${BASE_URL}/${newName}`))
     expect(missingResponse.status).toStrictEqual(404)

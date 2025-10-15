@@ -5,14 +5,15 @@ import crypto from "crypto"
 
 import worker from "../index"
 import { PasteResponse } from "../../shared/interfaces"
+import { CHAR_GEN } from "../../shared/constants"
 
 export const BASE_URL: string = env.DEPLOY_URL
-export const RAND_NAME_REGEX = /^[ABCDEFGHJKMNPQRSTWXYZabcdefhijkmnprstwxyz2345678]+$/
+export const RAND_NAME_REGEX = new RegExp(`^[${CHAR_GEN}]+$`)
 
 export const staticPages = ["", "index.html", "index", "tos", "tos.html", "api", "api.html", "favicon.ico"]
 
 type FormDataBuild = {
-  [key: string]: string | Blob | { content: Blob; filename: string }
+  [key: string]: string | Blob | { content: Blob; filename: string } | number
 }
 
 export async function workerFetch(ctx: ExecutionContext, req: Request | string) {
@@ -85,6 +86,8 @@ export function createFormData(kv: FormDataBuild): FormData {
   Object.entries(kv).forEach(([k, v]) => {
     if (typeof v === "string") {
       fd.set(k, v)
+    } else if (typeof v === "number") {
+      fd.set(k, String(v))
     } else if (v instanceof Blob) {
       fd.set(k, v, "") // fd.set automatically set filename to k, not what we desired
     } else {

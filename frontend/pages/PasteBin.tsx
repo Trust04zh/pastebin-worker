@@ -21,6 +21,12 @@ import {
 } from "../utils/utils.js"
 import { uploadPaste } from "../utils/uploader.js"
 import { tst } from "../utils/overrides.js"
+import { calculateCustomUrlLengths, getMinRandomLength } from "../utils/customUrl.js"
+import {
+  DEFAULT_CUSTOM_URL_ALIGNED_LENGTH,
+  MIN_PASTE_NAME_LENGTH,
+  MAX_PASTE_NAME_LENGTH,
+} from "../../shared/constants.js"
 
 import "../style.css"
 
@@ -35,7 +41,13 @@ export function PasteBin() {
   const [pasteSetting, setPasteSetting] = useState<PasteSetting>({
     expiration: DEFAULT_EXPIRATION,
     manageUrl: "",
-    name: "",
+    customText: "",
+    customEnableRandom: true,
+    customAlignedLength: DEFAULT_CUSTOM_URL_ALIGNED_LENGTH,
+    customUsePrefixSeparator: false,
+    customUseSuffixSeparator: true,
+    customSecurityGuarantee: true,
+    customEntropyBits: 128,
     password: "",
     uploadKind: "short",
     doEncrypt: false,
@@ -146,7 +158,36 @@ export function PasteBin() {
       if (pasteSetting.uploadKind === "short" || pasteSetting.uploadKind === "long") {
         return true
       } else if (pasteSetting.uploadKind === "custom") {
-        return verifyName(pasteSetting.name)[0]
+        // Validate custom text
+        if (pasteSetting.customText && !verifyName(pasteSetting.customText)[0]) {
+          return false
+        }
+
+        if (!pasteSetting.customEnableRandom) {
+          // Fixed custom name only - just validate custom text
+          return true
+        }
+
+        // Validate aligned length
+        if (
+          pasteSetting.customAlignedLength < MIN_PASTE_NAME_LENGTH ||
+          pasteSetting.customAlignedLength > MAX_PASTE_NAME_LENGTH
+        ) {
+          return false
+        }
+
+        // Calculate random part length using utility function
+        const { randomLen } = calculateCustomUrlLengths(pasteSetting)
+
+        // Check security guarantee requirements
+        if (pasteSetting.customSecurityGuarantee) {
+          const minRandom = getMinRandomLength(pasteSetting)
+          if (randomLen < minRandom) {
+            return false
+          }
+        }
+
+        return true
       } else if (pasteSetting.uploadKind === "manage") {
         return verifyManageUrl(pasteSetting.manageUrl)[0]
       } else {

@@ -2,7 +2,7 @@ import { uploadMPU } from "../../shared/uploadPaste"
 import { vi, test, describe, it, expect, afterAll, beforeEach } from "vitest"
 import { createExecutionContext } from "cloudflare:test"
 import { addRole, areBlobsEqual, BASE_URL, genRandomBlob, workerFetch } from "./testUtils"
-import { PRIVATE_PASTE_NAME_LEN } from "../../shared/constants"
+import { SHORT_PASTE_NAME_LEN, LONG_PASTE_NAME_LEN } from "../../shared/constants"
 import { parsePath } from "../../shared/parsers"
 import { MetaResponse } from "../../shared/interfaces"
 
@@ -26,6 +26,7 @@ test("uploadMPU", async () => {
     {
       isUpdate: false,
       content: new File([await content.arrayBuffer()], ""),
+      randomLen: SHORT_PASTE_NAME_LEN,
     },
     callBack,
   )
@@ -61,19 +62,20 @@ describe("uploadMPU with variant parameters", () => {
       isUpdate: false,
       content: new File([await content.arrayBuffer()], ""),
       name: "foobarfoobar",
+      randomLen: 0,
       expire: "100",
     })
     expect(uploadResp.expirationSeconds).toStrictEqual(100)
-    expect(uploadResp.url.includes("/~foobarfoobar")).toStrictEqual(true)
+    expect(uploadResp.url.includes("/foobarfoobar")).toStrictEqual(true)
   })
 
   it("handles long paste name", async () => {
     const uploadResp = await uploadMPU(BASE_URL, 1024 * 1024 * 5, {
       isUpdate: false,
       content: new File([await content.arrayBuffer()], ""),
-      isPrivate: true,
+      randomLen: LONG_PASTE_NAME_LEN,
     })
     const { name } = parsePath(new URL(uploadResp.url).pathname)
-    expect(name.length).toStrictEqual(PRIVATE_PASTE_NAME_LEN)
+    expect(name.length).toStrictEqual(LONG_PASTE_NAME_LEN)
   })
 })

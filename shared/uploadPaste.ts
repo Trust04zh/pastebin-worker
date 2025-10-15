@@ -17,11 +17,9 @@ export type UploadOptions = {
   content: File
   isUpdate: boolean
 
-  // we allow it to be undefined for convenience
-  isPrivate?: boolean
-
   password?: string
   name?: string
+  randomLen?: number
 
   highlightLanguage?: string
   encryptionScheme?: EncryptionScheme
@@ -35,12 +33,12 @@ export async function uploadNormal(
   {
     content,
     isUpdate,
-    isPrivate,
     password,
     name,
     highlightLanguage,
     encryptionScheme,
     expire,
+    randomLen,
     manageUrl,
   }: UploadOptions,
 ): Promise<PasteResponse> {
@@ -58,7 +56,7 @@ export async function uploadNormal(
   if (!isUpdate && name !== undefined) fd.set("n", name)
   if (encryptionScheme !== undefined) fd.set("encryption-scheme", encryptionScheme)
   if (highlightLanguage !== undefined) fd.set("lang", highlightLanguage)
-  if (isPrivate) fd.set("p", "1")
+  if (!isUpdate && randomLen !== undefined) fd.set("l", String(randomLen))
 
   const resp = isUpdate
     ? await fetch(manageUrl!, {
@@ -83,12 +81,12 @@ export async function uploadMPU(
   {
     content,
     isUpdate,
-    isPrivate,
     password,
     name,
     highlightLanguage,
     encryptionScheme,
     expire,
+    randomLen,
     manageUrl,
   }: UploadOptions,
   progressCallback?: (doneBytes: number, allBytes: number) => void,
@@ -98,8 +96,8 @@ export async function uploadMPU(
     if (name !== undefined) {
       createReqUrl.searchParams.set("n", name)
     }
-    if (isPrivate) {
-      createReqUrl.searchParams.set("p", "1")
+    if (randomLen !== undefined) {
+      createReqUrl.searchParams.set("l", String(randomLen))
     }
   } else {
     if (manageUrl === undefined) {

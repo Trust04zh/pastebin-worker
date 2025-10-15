@@ -1,15 +1,7 @@
 import { verifyAuth } from "../pages/auth.js"
-import { decode, genRandStr, WorkerError } from "../common.js"
-import { createPaste, getPasteMetadata, pasteNameAvailable, updatePaste } from "../storage/storage.js"
-import {
-  DEFAULT_PASSWD_LEN,
-  NAME_REGEX,
-  PASTE_NAME_LEN,
-  PRIVATE_PASTE_NAME_LEN,
-  PASSWD_SEP,
-  MIN_PASSWD_LEN,
-  MAX_PASSWD_LEN,
-} from "../../shared/constants.js"
+import { decode, genRandStr, WorkerError, validateAndGeneratePasteName } from "../common.js"
+import { createPaste, getPasteMetadata, updatePaste } from "../storage/storage.js"
+import { DEFAULT_PASSWD_LEN, PASSWD_SEP, MIN_PASSWD_LEN, MAX_PASSWD_LEN } from "../../shared/constants.js"
 import { parsePath, parseSize, parseExpiration } from "../../shared/parsers.js"
 import { PasteResponse } from "../../shared/interfaces.js"
 import { MaxFileSizeExceededError, MultipartParseError, parseMultipartRequest } from "@mjackson/multipart-parser"
@@ -102,12 +94,12 @@ export async function handlePostOrPut(
   }
   const { filename, content, contentAsString, contentLength } = parts.get("c")!
   const nameFromForm = parts.get("n")?.contentAsString()
-  const isPrivate = parts.has("p")
   const passwdFromForm = parts.get("s")?.contentAsString()
   const expireFromForm: string | undefined = parts.get("e")?.contentAsString()
   const encryptionScheme: string | undefined = parts.get("encryption-scheme")?.contentAsString()
   const highlightLanguage = parts.get("lang")?.contentAsString()
   const expire = expireFromForm ? expireFromForm : env.DEFAULT_EXPIRATION
+  const randomLenStr = parts.get("l")?.contentAsString()
 
   const uploadedParts = isMPUComplete ? (JSON.parse(contentAsString()) as R2UploadedPart[]) : undefined
 
@@ -136,9 +128,6 @@ export async function handlePostOrPut(
   // check if name is legal
   if (nameFromForm !== undefined && isPut) {
     throw new WorkerError(400, `Cannot set name for a PUT request`)
-  }
-  if (nameFromForm !== undefined && !NAME_REGEX.test(nameFromForm)) {
-    throw new WorkerError(400, `Name ${nameFromForm} not satisfying regexp ${NAME_REGEX}`)
   }
 
   function makeResponse(created: PasteResponse, additionalHeaders: Record<string, string | undefined> = {}): Response {
@@ -207,20 +196,16 @@ export async function handlePostOrPut(
       { etag: r2Object?.httpEtag },
     )
   } else {
-    let pasteName: string | undefined
+    let pasteName: string
     if (isMPUComplete) {
       if (url.searchParams.has("name")) {
         pasteName = url.searchParams.get("name")!
       } else {
         throw new WorkerError(400, `no name for MPU complete`)
       }
-    } else if (nameFromForm !== undefined) {
-      pasteName = "~" + nameFromForm
-      if (!(await pasteNameAvailable(env, pasteName))) {
-        throw new WorkerError(409, `name '${pasteName}' is already used`)
-      }
     } else {
-      pasteName = genRandStr(isPrivate ? PRIVATE_PASTE_NAME_LEN : PASTE_NAME_LEN)
+      // Validate and generate paste name
+      pasteName = await validateAndGeneratePasteName(nameFromForm, randomLenStr, env)
     }
 
     const r2Object = isMPUComplete ? await handleMPUComplete(request, env, uploadedParts!) : undefined

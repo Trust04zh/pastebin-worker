@@ -45,6 +45,8 @@ export function verifyExpiration(expiration: string): [boolean, string] {
 export function verifyName(name: string): [boolean, string] {
   if (name.length < 3) {
     return [false, "Should have at least 3 characters"]
+  } else if (name.includes("~")) {
+    return [false, "Cannot contain '~' (use separator toggles instead)"]
   } else if (!NAME_REGEX.test(name)) {
     return [false, "Should only contain alphanumeric and +_-[]*$@,;"]
   } else {
