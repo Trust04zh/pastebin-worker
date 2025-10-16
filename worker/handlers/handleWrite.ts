@@ -117,7 +117,7 @@ export async function handlePostOrPut(
       throw new WorkerError(400, `No expiration is not allowed (administrator has not enabled it)`)
     }
   } else {
-    if (expirationSeconds > maxExpiration) {
+    if (maxExpiration !== 0 && expirationSeconds > maxExpiration) {
       expirationSeconds = maxExpiration
     }
   }

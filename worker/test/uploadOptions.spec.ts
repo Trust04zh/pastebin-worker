@@ -39,28 +39,46 @@ test("expire with option e", async () => {
   const blob1 = genRandomBlob(1024)
   const ctx = createExecutionContext()
 
-  async function testExpireParse(expire: string, expireSecs: number | null) {
-    const responseJson = await upload(ctx, { c: blob1, e: expire })
+  const defaultExpirationSeconds = parseExpiration(env.DEFAULT_EXPIRATION)!
+
+  // Test with MAX_EXPIRATION = "0" (no expiration allowed)
+  const envNoExpiration = { ...env, MAX_EXPIRATION: "0" }
+  async function testExpireParseNoExpire(expire: string, expireSecs: number | null) {
+    const responseJson = await upload(ctx, { c: blob1, e: expire }, { env: envNoExpiration })
     expect(responseJson["expirationSeconds"]).toStrictEqual(expireSecs)
   }
 
-  const maxExpirationSeconds = parseExpiration(env.MAX_EXPIRATION)!
-  const defaultExpirationSeconds = parseExpiration(env.DEFAULT_EXPIRATION)!
-  await testExpireParse("1000", 1000)
-  await testExpireParse("100m", 6000)
-  await testExpireParse("100h", 360000)
-  await testExpireParse("1d", 86400)
-  await testExpireParse("100d", maxExpirationSeconds) // longer expiration will be clipped to 30d
-  await testExpireParse("100  m", 6000)
-  await testExpireParse("", defaultExpirationSeconds)
+  await testExpireParseNoExpire("1000", 1000)
+  await testExpireParseNoExpire("100m", 6000)
+  await testExpireParseNoExpire("100h", 360000)
+  await testExpireParseNoExpire("1d", 86400)
+  await testExpireParseNoExpire("100d", 8640000) // no clipping
+  await testExpireParseNoExpire("100  m", 6000)
+  await testExpireParseNoExpire("", defaultExpirationSeconds)
+  await testExpireParseNoExpire("0", 0)
 
-  const testFailParse = async (expire: string) => {
-    await uploadExpectStatus(ctx, { c: blob1, e: expire }, 400)
+  // Test with MAX_EXPIRATION = "30d" (limited expiration)
+  const envWithMaxExpiration = { ...env, MAX_EXPIRATION: "30d" }
+  const maxExpirationSeconds = parseExpiration("30d")!
+  async function testExpireParseDoExpire(expire: string, expireSecs: number | null) {
+    const responseJson = await upload(ctx, { c: blob1, e: expire }, { env: envWithMaxExpiration })
+    expect(responseJson["expirationSeconds"]).toStrictEqual(expireSecs)
+  }
+
+  await testExpireParseDoExpire("1000", 1000)
+  await testExpireParseDoExpire("100m", 6000)
+  await testExpireParseDoExpire("1d", 86400)
+  await testExpireParseDoExpire("100d", maxExpirationSeconds) // clipped to 30d
+  await testExpireParseDoExpire("", defaultExpirationSeconds)
+
+  const testFailParse = async (expire: string, testEnv = env) => {
+    await uploadExpectStatus(ctx, { c: blob1, e: expire }, 400, { env: testEnv })
   }
 
   await testFailParse("abc")
   await testFailParse("1c")
   await testFailParse("-100m")
+  await testFailParse("0", envWithMaxExpiration) // no expiration disallowed
 })
 
 test("custom path with option n and l", async () => {

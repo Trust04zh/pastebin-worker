@@ -16,10 +16,10 @@ type FormDataBuild = {
   [key: string]: string | Blob | { content: Blob; filename: string } | number
 }
 
-export async function workerFetch(ctx: ExecutionContext, req: Request | string) {
+export async function workerFetch(ctx: ExecutionContext, req: Request | string, customEnv?: Env) {
   // we are not using SELF.fetch since it sometimes do not print worker log to console
   // return await SELF.fetch(req, options)
-  return await worker.fetch(new Request(req), env, ctx)
+  return await worker.fetch(new Request(req), customEnv || env, ctx)
 }
 
 export async function upload(
@@ -30,6 +30,7 @@ export async function upload(
     url?: string
     headers?: Record<string, string>
     context?: string
+    env?: Env
   } = {},
 ): Promise<PasteResponse> {
   const method = options.method || "POST"
@@ -42,6 +43,7 @@ export async function upload(
       body: createFormData(kv),
       headers,
     }),
+    options.env,
   )
   if (uploadResponse.status !== 200) {
     let uploadMsg = await uploadResponse.text()
@@ -61,6 +63,7 @@ export async function uploadExpectStatus(
     url?: string
     headers?: Record<string, string>
     context?: string
+    env?: Env
   } = {},
 ): Promise<void> {
   const method = options.method || "POST"
@@ -73,6 +76,7 @@ export async function uploadExpectStatus(
       body: createFormData(kv),
       headers,
     }),
+    options.env,
   )
   if (uploadResponse.status !== expectedStatuus) {
     let uploadMsg = await uploadResponse.text()
