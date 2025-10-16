@@ -21,6 +21,7 @@ export type PasteMetadata = {
   lastModifiedAtUnix: number
   createdAtUnix: number
   willExpireAtUnix: number
+  noExpiration: boolean
 
   accessCounter: number // a counter representing how frequent it is accessed, to administration usage
   sizeBytes: number
@@ -37,6 +38,7 @@ type PasteMetadataInStorage = {
   lastModifiedAtUnix: number
   createdAtUnix: number
   willExpireAtUnix: number
+  noExpiration?: boolean
 
   accessCounter?: number
   sizeBytes?: number
@@ -46,6 +48,9 @@ type PasteMetadataInStorage = {
 }
 
 function migratePasteMetadata(original: PasteMetadataInStorage): PasteMetadata {
+  // if noExpiration field doesn't exist, default to false (legacy pastes always had expiration)
+  const noExpiration = original.noExpiration ?? false
+
   return {
     schemaVersion: 1,
     location: original.location || "KV",
@@ -54,6 +59,7 @@ function migratePasteMetadata(original: PasteMetadataInStorage): PasteMetadata {
     lastModifiedAtUnix: original.lastModifiedAtUnix,
     createdAtUnix: original.createdAtUnix,
     willExpireAtUnix: original.willExpireAtUnix,
+    noExpiration: noExpiration,
 
     accessCounter: original.accessCounter || 0,
     sizeBytes: original.sizeBytes || 0,
@@ -74,10 +80,10 @@ async function updateAccessCounter(env: Env, short: string, value: ArrayBuffer, 
   if (Math.random() < 0.01) {
     metadata.accessCounter += 1
     try {
-      await env.PB.put(short, value, {
-        metadata: metadata,
-        expiration: metadata.willExpireAtUnix,
-      })
+      const putOptions = metadata.noExpiration
+        ? { metadata: metadata }
+        : { metadata: metadata, expiration: metadata.willExpireAtUnix }
+      await env.PB.put(short, value, putOptions)
     } catch (e) {
       // ignore rate limit message
       if (!(e as Error).message.includes("KV PUT failed: 429 Too Many Requests")) {
@@ -97,7 +103,7 @@ export async function getPaste(env: Env, short: string, ctx: ExecutionContext): 
   } else {
     workerAssert(item.metadata != null, `paste of name '${short}' has no metadata`)
     const metadata = migratePasteMetadata(item.metadata)
-    const expired = metadata.willExpireAtUnix < new Date().getTime() / 1000
+    const expired = !metadata.noExpiration && metadata.willExpireAtUnix < new Date().getTime() / 1000
 
     ctx.waitUntil(
       (async () => {
@@ -136,10 +142,11 @@ export async function getPasteMetadata(env: Env, short: string): Promise<PasteMe
   } else if (item.metadata === null) {
     throw new WorkerError(500, `paste of name '${short}' has no metadata`)
   } else {
-    if (item.metadata.willExpireAtUnix < new Date().getTime() / 1000) {
+    const metadata = migratePasteMetadata(item.metadata)
+    if (!metadata.noExpiration && metadata.willExpireAtUnix < new Date().getTime() / 1000) {
       return null
     }
-    return migratePasteMetadata(item.metadata)
+    return metadata
   }
 }
 
@@ -188,15 +195,16 @@ export async function updatePaste(
     lastModifiedAtUnix: dateToUnix(options.now),
     createdAtUnix: originalMetadata.createdAtUnix,
     willExpireAtUnix: expirationUnix,
+    noExpiration: options.expirationSeconds === 0,
     accessCounter: originalMetadata.accessCounter,
     sizeBytes: options.contentLength,
     encryptionScheme: options.encryptionScheme,
   }
 
-  await env.PB.put(pasteName, originalMetadata.location === "R2" ? "" : content, {
-    metadata: metadata,
-    expiration: expirationUnixSpecified,
-  })
+  const putOptions = metadata.noExpiration
+    ? { metadata: metadata }
+    : { metadata: metadata, expiration: expirationUnixSpecified }
+  await env.PB.put(pasteName, originalMetadata.location === "R2" ? "" : content, putOptions)
 }
 
 export async function createPaste(
@@ -229,15 +237,16 @@ export async function createPaste(
     lastModifiedAtUnix: dateToUnix(options.now),
     createdAtUnix: dateToUnix(options.now),
     willExpireAtUnix: expirationUnix,
+    noExpiration: options.expirationSeconds === 0,
     accessCounter: 0,
     sizeBytes: options.contentLength,
     encryptionScheme: options.encryptionScheme,
   }
 
-  await env.PB.put(pasteName, location === "R2" ? "" : content, {
-    metadata: metadata,
-    expiration: expirationUnixSpecified,
-  })
+  const putOptions = metadata.noExpiration
+    ? { metadata: metadata }
+    : { metadata: metadata, expiration: expirationUnixSpecified }
+  await env.PB.put(pasteName, location === "R2" ? "" : content, putOptions)
 }
 
 export async function pasteNameAvailable(env: Env, pasteName: string): Promise<boolean> {
@@ -247,7 +256,11 @@ export async function pasteNameAvailable(env: Env, pasteName: string): Promise<b
   } else if (item.metadata === null) {
     throw new WorkerError(500, `paste of name '${pasteName}' has no metadata`)
   } else {
-    return item.metadata.willExpireAtUnix < new Date().getTime() / 1000
+    const metadata = migratePasteMetadata(item.metadata)
+    if (metadata.noExpiration) {
+      return false
+    }
+    return metadata.willExpireAtUnix < new Date().getTime() / 1000
   }
 }
 
@@ -287,7 +300,7 @@ export async function cleanExpiredInR2(env: Env, controller: ScheduledController
     for (const key of listed.keys) {
       if (key.metadata !== undefined) {
         const metadata = migratePasteMetadata(key.metadata)
-        if (metadata.location === "R2" && metadata.willExpireAtUnix < nowUnix) {
+        if (metadata.location === "R2" && !metadata.noExpiration && metadata.willExpireAtUnix < nowUnix) {
           r2NamesToClean.push(key.name)
 
           if (r2NamesToClean.length === 1000) {

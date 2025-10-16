@@ -16,6 +16,7 @@ import {
   verifyManageUrl,
   verifyName,
   maxExpirationReadable,
+  noExpirationAllowed,
   BaseUrl,
   APIUrl,
 } from "../utils/utils.js"
@@ -220,10 +221,12 @@ export function PasteBin() {
         </Link>
         .
       </p>
-      <p className="my-2">
-        <b>Warning</b>: Only for temporary share <b>(max {maxExpirationReadable})</b>. Files could be deleted without
-        notice!
-      </p>
+      {!noExpirationAllowed && (
+        <p className="my-2">
+          <b>Warning</b>: Only for temporary share <b>(max {maxExpirationReadable})</b>. Files could be deleted without
+          notice!
+        </p>
+      )}
     </div>
   )
 

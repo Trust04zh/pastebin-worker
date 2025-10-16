@@ -6,6 +6,7 @@ export const APIUrl = API_URL
 
 export const maxExpirationSeconds = parseExpiration(MAX_EXPIRATION)!
 export const maxExpirationReadable = parseExpirationReadable(MAX_EXPIRATION)!
+export const noExpirationAllowed = maxExpirationSeconds === 0
 
 export class ErrorWithTitle extends Error {
   public title: string
@@ -34,7 +35,14 @@ export function verifyExpiration(expiration: string): [boolean, string] {
   if (parsed === null) {
     return [false, "Invalid expiration"]
   } else {
-    if (parsed > maxExpirationSeconds) {
+    if (parsed === 0) {
+      if (noExpirationAllowed) {
+        return [true, "No expiration"]
+      } else {
+        return [false, "No expiration is not allowed"]
+      }
+    }
+    if (!noExpirationAllowed && parsed > maxExpirationSeconds) {
       return [false, `Exceed max expiration (${maxExpirationReadable})`]
     } else {
       return [true, `Expires in ${parseExpirationReadable(expiration)!}`]

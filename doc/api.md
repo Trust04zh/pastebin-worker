@@ -110,8 +110,8 @@ $ curl -L https://shz.al/m/i-p-
 Explanation of the fields:
 
 - `lastModified`: String. An ISO String representing the last modification time of the paste.
-- `expireAt`: String. An ISO String representing when the paste will expire.
-- `expireAt`: String. An ISO String representing when the paste was created.
+- `createdAt`: String. An ISO String representing when the paste was created.
+- `expireAt`: String. An ISO String representing when the paste will expire, or `"never"` if the paste has no expiration.
 - `sizeBytes`: Integer. The size of the content of the paste in bytes.
 - `filename`: Optional string. The file name of the paste.
 - `location`: String, either "KV" of "R2". Representing whether the paste content is stored in Cloudflare KV storage or R2 object storage.
@@ -180,7 +180,7 @@ Upload your paste. It accept parameters in form-data:
 
 - `c`: mandatory. The **content** of your paste, text of binary. It should be no larger than 10 MB. The `filename` in its `Content-Disposition` will be present when fetching the paste.
 
-- `e`: optional. The **expiration** time of the paste. After this period of time, the paste is permanently deleted. It should be an integer or a float point number suffixed with an optional unit (seconds by default). Supported units: `s` (seconds), `m` (minutes), `h` (hours), `d` (days). For example, `360.24` means 360.25 seconds; `25d` is interpreted as 25 days. The actual expiration might be shorter than specified expiration due to limitations imposed by the administrator. If unspecified, a default expiration time setting is used.
+- `e`: optional. The **expiration** time of the paste. After this period of time, the paste is permanently deleted. It should be an integer or a float point number suffixed with an optional unit (seconds by default). Supported units: `s` (seconds), `m` (minutes), `h` (hours), `d` (days). For example, `360.24` means 360.25 seconds; `25d` is interpreted as 25 days. **No expiration: `0` means the paste never expires.** The actual expiration might be shorter than specified expiration due to limitations imposed by the administrator. If unspecified, a default expiration time setting is used.
 
 - `s`: optional. The **password** which allows you to modify and delete the paste. If not specified, the worker will generate a random Base58 string as password.
 
@@ -223,8 +223,8 @@ Explanation of the fields:
 
 - `url`: String. The URL to fetch the paste.
 - `manageUrl`: String. The URL to update and delete the paste, which is `url` suffixed by `:` and the password.
-- `expirationSeconds`: Integer. The expiration seconds.
-- `expireAt`: String. An ISO String representing when the paste will expire.
+- `expirationSeconds`: Integer. The expiration seconds. `0` if the paste has no expiration.
+- `expireAt`: String. An ISO String representing when the paste will expire, or `"never"` if the paste has no expiration.
 
 If error occurs, the worker returns status code different from `200`:
 
@@ -275,6 +275,15 @@ $ curl -Fc="kawaii" -Fe=300 -Fn=~hitagi~ -Fl=10 https://shz.al
   "expireAt": "2025-05-05T10:33:06.114Z"
 }
 # URL structure: <base_url>/<separator><custom><separator><random:10>
+
+# Example 5: No expiration paste
+$ curl -Fc="isshou" -Fe=0 -Fn=permanent https://shz.al
+{
+  "url": "https://shz.al/permanent",
+  "manageUrl": "https://shz.al/permanent:5Cw72QnyPQypPPvQFAHVVYWb",
+  "expirationSeconds": 0,
+  "expireAt": "never"
+}
 ```
 
 ## **PUT** `/<name>:<passwd>`

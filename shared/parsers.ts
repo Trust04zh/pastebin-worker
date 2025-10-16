@@ -27,6 +27,10 @@ export function parseExpiration(expirationStr: string): number | null {
     return null
   }
 
+  if (expirationSeconds === 0) {
+    return 0
+  }
+
   const lastChar = expirationStr[expirationStr.length - 1]
   if (lastChar === "m") expirationSeconds *= 60
   else if (lastChar === "h") expirationSeconds *= 3600
@@ -45,6 +49,11 @@ export function parseExpirationReadable(expirationStr: string): string | null {
   if (isNaN(num)) {
     return null
   }
+
+  if (num === 0) {
+    return "never"
+  }
+
   const lastChar = expirationStr[expirationStr.length - 1]
   if (lastChar === "m") return `${num} minute${num > 1 ? "s" : ""}`
   else if (lastChar === "h") return `${num} hour${num > 1 ? "s" : ""}`

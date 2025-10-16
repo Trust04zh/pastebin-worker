@@ -50,6 +50,7 @@ test("parseFilenameFromContentDisposition", () => {
 
 test("parseExpiration", () => {
   const testPairs: [string, number | null, string | null][] = [
+    ["0", 0, "never"],
     ["1", 1, "1 second"],
     ["1m", 60, "1 minute"],
     ["0.5d", 12 * 60 * 60, "0.5 day"],

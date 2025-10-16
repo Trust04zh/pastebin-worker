@@ -184,7 +184,7 @@ export async function handleGet(request: Request, env: Env, ctx: ExecutionContex
     const returnedMetadata: MetaResponse = {
       lastModifiedAt: new Date(item.metadata.lastModifiedAtUnix * 1000).toISOString(),
       createdAt: new Date(item.metadata.createdAtUnix * 1000).toISOString(),
-      expireAt: new Date(item.metadata.willExpireAtUnix * 1000).toISOString(),
+      expireAt: item.metadata.noExpiration ? "never" : new Date(item.metadata.willExpireAtUnix * 1000).toISOString(),
       sizeBytes: item.metadata.sizeBytes,
       location: item.metadata.location,
       filename: item.metadata.filename,

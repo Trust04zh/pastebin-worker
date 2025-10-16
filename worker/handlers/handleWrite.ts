@@ -106,11 +106,20 @@ export async function handlePostOrPut(
   // parse expiration
   let expirationSeconds = parseExpiration(expire)
   if (expirationSeconds === null) {
-    throw new WorkerError(400, `‘${expire}’ is not a valid expiration specification`)
+    throw new WorkerError(400, `'${expire}' is not a valid expiration specification`)
   }
+
   const maxExpiration = parseExpiration(env.MAX_EXPIRATION)!
-  if (expirationSeconds > maxExpiration) {
-    expirationSeconds = maxExpiration
+
+  // Only allow no expiration (0) when MAX_EXPIRATION is set to "0"
+  if (expirationSeconds === 0) {
+    if (maxExpiration !== 0) {
+      throw new WorkerError(400, `No expiration is not allowed (administrator has not enabled it)`)
+    }
+  } else {
+    if (expirationSeconds > maxExpiration) {
+      expirationSeconds = maxExpiration
+    }
   }
 
   // check if password is legal
@@ -191,7 +200,7 @@ export async function handlePostOrPut(
         url: accessUrl(pasteName),
         manageUrl: manageUrl(pasteName, newPasswd),
         expirationSeconds,
-        expireAt: new Date(now.getTime() + 1000 * expirationSeconds).toISOString(),
+        expireAt: expirationSeconds === 0 ? "never" : new Date(now.getTime() + 1000 * expirationSeconds).toISOString(),
       },
       { etag: r2Object?.httpEtag },
     )
@@ -227,7 +236,7 @@ export async function handlePostOrPut(
         url: accessUrl(pasteName),
         manageUrl: manageUrl(pasteName, password),
         expirationSeconds,
-        expireAt: new Date(now.getTime() + 1000 * expirationSeconds).toISOString(),
+        expireAt: expirationSeconds === 0 ? "never" : new Date(now.getTime() + 1000 * expirationSeconds).toISOString(),
       },
       { etag: r2Object?.httpEtag },
     )

@@ -14,7 +14,7 @@ import {
   Switch,
   Tooltip,
 } from "@heroui/react"
-import { BaseUrl, verifyExpiration, verifyManageUrl, verifyName } from "../utils/utils.js"
+import { BaseUrl, verifyExpiration, verifyManageUrl, verifyName, noExpirationAllowed } from "../utils/utils.js"
 import React from "react"
 import { InfoIcon } from "./icons.js"
 import { cardOverrides, inputOverrides, radioOverrides, switchOverrides, tst } from "../utils/overrides.js"
@@ -76,11 +76,25 @@ export function PanelSettingsPanel({ setting, onSettingChange, ...rest }: PasteS
         <div className="gap-4 mb-3 flex flex-row">
           <Input
             type="text"
-            label="Expiration"
+            label={
+              <div className="flex items-center gap-1">
+                <span>Expiration</span>
+                <Tooltip
+                  content={
+                    noExpirationAllowed
+                      ? "Use '0' for no expiration. Units: s (seconds), m (minutes), h (hours), d (days). Example: 7d, 30m, 0"
+                      : "Units: s (seconds), m (minutes), h (hours), d (days). Example: 7d, 30m"
+                  }
+                >
+                  <InfoIcon className="inline size-4" />
+                </Tooltip>
+              </div>
+            }
             // to avoid duplicated name, see https://github.com/adobe/react-spectrum/discussions/8037
             aria-labelledby=""
             classNames={{
               base: "basis-80",
+              label: "flex flex-row items-center gap-0",
               ...inputOverrides,
             }}
             defaultValue="7d"

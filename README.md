@@ -80,6 +80,21 @@ $ curl -u admin1:this-is-passwd-1 -Fc=@/path/to/file example-pb.com
 }
 ```
 
+## Enable No Expiration Pastes
+
+By default, the pastebin enforces a maximum expiration time for pastes (e.g., 30 days). If you want to allow users to create pastes that never expire, you need to modify the `MAX_EXPIRATION` entry in `wrangler.toml`:
+
+```toml
+[vars]
+# Set MAX_EXPIRATION to "0" to allow no expiration
+MAX_EXPIRATION = "0"
+
+# Or set a specific maximum expiration time (default behavior)
+# MAX_EXPIRATION = "30d"
+```
+
+**Note**: No-expiration pastes consume storage indefinitely without manual deletion, use this feature carefully based on your storage plan and quota.
+
 ## Administration
 
 Delete a paste:
